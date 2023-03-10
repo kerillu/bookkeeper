@@ -27,10 +27,25 @@ class SQLiteRepository(AbstractRepository[T]):
         con.close()
         return obj.pk
 
+    def __generate_object(self, db_row: tuple) -> T:
+        obj = self.cls(self.fields)
+        for field, value in zip(self.fields, db_row[1:]):
+            setattr(obj, field, value)
+        obj.pk = db_row[0]
+        return obj
 
     def get(self, pk: int) -> T | None:
         """ Получить объект по id """
-        pass
+        with sqlite3.connect(self.db_file) as con:
+            cur = con.cursor()
+            q = f'SELECT * FROM {self.table_name} WHERE pk = {pk}'
+            row = cur.execute(q).fetchone()
+        con.close()
+
+        if row is None:
+            return None
+
+        return self.__generate_object(row)
 
     def get_all(self, where: dict[str, any] | None = None) -> list[T]:
         """
@@ -38,7 +53,16 @@ class SQLiteRepository(AbstractRepository[T]):
         where - условие в виде словаря {'название_поля': значение}
         если условие не задано (по умолчанию), вернуть все записи
         """
-        pass
+        with sqlite3.connect(self.db_file) as con:
+            cur = con.cursor()
+            cur.execute(f'SELECT * FROM {self.table_name}') # TODO: не реализовано where
+            rows = cur.fetchall()
+        con.close()
+
+        if not rows:
+            return None
+
+        return [self.__generate_object(row) for row in rows]
 
     def update(self, obj: T) -> None:
         """ Обновить данные об объекте. Объект должен содержать поле pk. """
