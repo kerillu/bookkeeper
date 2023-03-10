@@ -3,6 +3,14 @@ import sqlite3
 from inspect import get_annotations
 from bookkeeper.repository.abstract_repository import AbstractRepository, T
 
+def mtob(cls: any, fields: dict[any, any], values: str) -> any:
+    res = object.__new__(cls)
+    if values is None:
+        return None
+    for attr, val in zip(fields.keys(), values):
+        setattr(res, attr, val)
+    setattr(res, 'pk', values[-1])
+    return res
 
 
 class SQLiteRepository(AbstractRepository[T]):
@@ -11,6 +19,17 @@ class SQLiteRepository(AbstractRepository[T]):
         self.table_name = cls.__name__.lower()
         self.fields = get_annotations(cls, eval_str=True)
         self.fields.pop('pk')
+        self.cls = cls
+
+        with sqlite3.connect(self.db_file) as con:
+            cur = con.cursor()
+            p = ' '.join([f"{field} TEXT," for field in self.fields])
+            cur.execute(
+                f"CREATE TABLE IF NOT EXISTS "
+                f"{self.table_name} ({p} "
+                f"pk INTEGER PRIMARY KEY)"
+                )
+        con.close()
 
 
     def add(self, obj: T) -> int:
@@ -19,27 +38,20 @@ class SQLiteRepository(AbstractRepository[T]):
         values = [getattr(obj, x) for x in self.fields]
         with sqlite3.connect(self.db_file) as con:
             cur = con.cursor()
+            cur.execute(f"SELECT 1 FROM {self.table_name} WHERE pk=?", (obj.pk,))
+            if cur.fetchone():
+                raise sqlite3.IntegrityError("Duplicate primary key")
             cur.execute('PRAGMA foreign_keys = ON')
-            cur.execute(
-                f'INSERT INTO {self.table_name} ({names}) VALUES ({p})',
-                values
-            )
+            cur.execute(f"INSERT INTO  {self.table_name} ({names}) VALUES ({p})", values)
             obj.pk = cur.lastrowid
         con.close()
         return obj.pk
 
 
-#    def __generate_object(self, db_row: tuple) -> T:
-#        obj = self.cls(self.fields)
-#        for field, value in zip(self.fields, db_row[1:]):
-#            setattr(obj, field, value)
-#        obj.pk = db_row[0]
-#        return obj
-
-
     def get(self, pk: int) -> T | None:
         """ Получить объект по id """
         with sqlite3.connect(self.db_file) as con:
+            con.row_factory = sqlite3.Row
             cur = con.cursor()
             q = f'SELECT * FROM {self.table_name} WHERE pk = {pk}'
             row = cur.execute(q).fetchone()
@@ -48,7 +60,9 @@ class SQLiteRepository(AbstractRepository[T]):
         if row is None:
             return None
 
-        return self.__generate_object(row)
+        values = {k: row[k] for k in row.keys()}
+        return self.cls(**values)
+
 
     def get_all(self, where: dict[str, any] | None = None) -> list[T]:
         """
@@ -58,24 +72,30 @@ class SQLiteRepository(AbstractRepository[T]):
         """
         with sqlite3.connect(self.db_file) as con:
             cur = con.cursor()
-            cur.execute(f'SELECT * FROM {self.table_name} ') # TODO: не реализовано where
+            if where is None:
+                cur.execute(f"SELECT * FROM {self.table_name}")
+            else:
+                conditions = ' AND '.join([f"{k} = ?" for k in where.keys()])
+                values = list(where.values())
+                cur.execute(f"SELECT * FROM {self.table_name} WHERE {conditions}", values)
             rows = cur.fetchall()
+            res = [mtob(self.cls, self.fields, row) for row in rows]
         con.close()
-        if not rows:
-            return None
-        return rows
-#        return [self.__generate_object(row) for row in rows]
+        return res
+
 
     def update(self, obj: T) -> None:
         """ Обновить данные об объекте. Объект должен содержать поле pk. """
-
-        names = ', '.join(self.fields.keys())
-        #p = ', '.join("?" * len(self.fields))
-        values = [getattr(obj, x) for x in self.fields]
+#        if obj.pk ==0 :
+#            raise ValueError('attempt to update object with unknown primary key')
         with sqlite3.connect(self.db_file) as con:
+            names = ', '.join(f"{f} = ?" for f in self.fields)
+            values = [getattr(obj, x) for x in self.fields]
+            values.append(obj.pk)
             cur = con.cursor()
-            cur.execute(f'UPDATE * FROM {self.table_name} ({names}) SET Category = {values} WHERE obj.pk = {obj}')
-
+            cur.execute(f'UPDATE {self.table_name} SET {names} WHERE pk = ?', values)
+            if cur.rowcount == 0:
+                raise KeyError(f"No {self.cls.__name__} with pk = {obj.pk} found")
         con.close()
 
 
@@ -83,8 +103,8 @@ class SQLiteRepository(AbstractRepository[T]):
         """ Удалить запись """
         with sqlite3.connect(self.db_file) as con:
             cur = con.cursor()
-            cur.execute(f' DELETE * FROM {self.table_name} WHERE pk = {pk}')
+            cur.execute(f' DELETE FROM {self.table_name} WHERE pk = ?', (pk,))
+            if cur.rowcount == 0:
+                raise KeyError(f"No {self.cls.__name__} with pk = {pk} found")
         con.close()
 
-        #if n
-        #pass
