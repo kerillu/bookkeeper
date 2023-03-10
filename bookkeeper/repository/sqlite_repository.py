@@ -12,6 +12,7 @@ class SQLiteRepository(AbstractRepository[T]):
         self.fields = get_annotations(cls, eval_str=True)
         self.fields.pop('pk')
 
+
     def add(self, obj: T) -> int:
         names = ', '.join(self.fields.keys())
         p = ', '.join("?" * len(self.fields))
@@ -27,12 +28,14 @@ class SQLiteRepository(AbstractRepository[T]):
         con.close()
         return obj.pk
 
-    def __generate_object(self, db_row: tuple) -> T:
-        obj = self.cls(self.fields)
-        for field, value in zip(self.fields, db_row[1:]):
-            setattr(obj, field, value)
-        obj.pk = db_row[0]
-        return obj
+
+#    def __generate_object(self, db_row: tuple) -> T:
+#        obj = self.cls(self.fields)
+#        for field, value in zip(self.fields, db_row[1:]):
+#            setattr(obj, field, value)
+#        obj.pk = db_row[0]
+#        return obj
+
 
     def get(self, pk: int) -> T | None:
         """ Получить объект по id """
@@ -55,19 +58,33 @@ class SQLiteRepository(AbstractRepository[T]):
         """
         with sqlite3.connect(self.db_file) as con:
             cur = con.cursor()
-            cur.execute(f'SELECT * FROM {self.table_name}') # TODO: не реализовано where
+            cur.execute(f'SELECT * FROM {self.table_name} ') # TODO: не реализовано where
             rows = cur.fetchall()
         con.close()
-
         if not rows:
             return None
-
-        return [self.__generate_object(row) for row in rows]
+        return rows
+#        return [self.__generate_object(row) for row in rows]
 
     def update(self, obj: T) -> None:
         """ Обновить данные об объекте. Объект должен содержать поле pk. """
-        pass
+
+        names = ', '.join(self.fields.keys())
+        #p = ', '.join("?" * len(self.fields))
+        values = [getattr(obj, x) for x in self.fields]
+        with sqlite3.connect(self.db_file) as con:
+            cur = con.cursor()
+            cur.execute(f'UPDATE * FROM {self.table_name} ({names}) SET Category = {values} WHERE obj.pk = {obj}')
+
+        con.close()
+
 
     def delete(self, pk: int) -> None:
         """ Удалить запись """
-        pass
+        with sqlite3.connect(self.db_file) as con:
+            cur = con.cursor()
+            cur.execute(f' DELETE * FROM {self.table_name} WHERE pk = {pk}')
+        con.close()
+
+        #if n
+        #pass

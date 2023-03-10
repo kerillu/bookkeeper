@@ -1,6 +1,8 @@
 """
 Простой тестовый скрипт для терминала
 """
+import os.path
+import sqlite3
 
 from bookkeeper.models.category import Category
 from bookkeeper.models.expense import Expense
@@ -8,9 +10,10 @@ from bookkeeper.repository.memory_repository import MemoryRepository
 from bookkeeper.repository.sqlite_repository import SQLiteRepository
 from bookkeeper.utils import read_tree
 
+con = sqlite3.connect('test12.db')
 
 
-cat_repo = SQLiteRepository[Category]('test.db', Category) # TODO: репозиторий пока не реализован
+cat_repo = SQLiteRepository[Category]('test12.db', Category)  # TODO: репозиторий пока не реализован
 exp_repo = MemoryRepository[Expense]()
 
 cats = '''
@@ -23,7 +26,23 @@ cats = '''
 одежда
 '''.splitlines()
 
-Category.create_from_tree(read_tree(cats), cat_repo)
+def create_tab(con):
+    cur = con.cursor()
+    cur.execute('create table if not exists "Category" ('
+                '"id" integer primary key autoincrement, '
+                '"name" text, '
+                '"parent" integer)'
+                )
+    cur.execute('SELECT * FROM "Category"')
+    p = cur.fetchall()
+    print(p)
+    if p == []:
+        Category.create_from_tree(read_tree(cats), cat_repo)
+    else: None
+
+    con.close()
+
+create_tab(con)
 
 while True:
     try:
@@ -46,3 +65,5 @@ while True:
         exp = Expense(int(amount), cat.pk)
         exp_repo.add(exp)
         print(exp)
+
+"da"
