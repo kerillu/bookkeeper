@@ -3,6 +3,7 @@ import sqlite3
 from inspect import get_annotations
 from bookkeeper.repository.abstract_repository import AbstractRepository, T
 
+"""
 def mtob(cls: any, fields: dict[any, any], values: str) -> any:
     res = object.__new__(cls)
     if values is None:
@@ -11,7 +12,7 @@ def mtob(cls: any, fields: dict[any, any], values: str) -> any:
         setattr(res, attr, val)
     setattr(res, 'pk', values[-1])
     return res
-
+"""
 
 class SQLiteRepository(AbstractRepository[T]):
     def __init__(self, db_file: str, cls: type) -> None:
@@ -23,12 +24,16 @@ class SQLiteRepository(AbstractRepository[T]):
 
         with sqlite3.connect(self.db_file) as con:
             cur = con.cursor()
-            p = ' '.join([f"{field} TEXT," for field in self.fields])
-            cur.execute(
-                f"CREATE TABLE IF NOT EXISTS "
-                f"{self.table_name} ({p} "
-                f"pk INTEGER PRIMARY KEY)"
-                )
+            col_names = ', '.join(self.fields.keys())
+            q = f'CREATE TABLE IF NOT EXISTS {self.table_name} (' \
+                f'"pk" INTEGER PRIMARY KEY AUTOINCREMENT, {col_names})'
+            cur.execute(q)
+            #p = ' '.join([f"{field} TEXT," for field in self.fields])
+            #cur.execute(
+            #    f"CREATE TABLE IF NOT EXISTS "
+            #    f"{self.table_name} ({p} "
+            #    f"pk INTEGER PRIMARY KEY)"
+            #    )
         con.close()
 
 
@@ -75,6 +80,23 @@ class SQLiteRepository(AbstractRepository[T]):
             if where is None:
                 cur.execute(f"SELECT * FROM {self.table_name}")
             else:
+                conditions = ' AND '.join(f"{k} = ?" for k in where.keys())
+                values = list(where.values())
+                cur.execute(f"SELECT * FROM {self.table_name} WHERE {conditions}", values)
+            rows = cur.fetchall()
+            objects = []
+            for row in rows:
+                values = [row[i + 1] for i in range(len(self.fields))]
+                obj = self.cls(*values)
+                obj.pk = row[0]
+                objects.append(obj)
+            return objects
+        """
+        with sqlite3.connect(self.db_file) as con:
+            cur = con.cursor()
+            if where is None:
+                cur.execute(f"SELECT * FROM {self.table_name}")
+            else:
                 conditions = ' AND '.join([f"{k} = ?" for k in where.keys()])
                 values = list(where.values())
                 cur.execute(f"SELECT * FROM {self.table_name} WHERE {conditions}", values)
@@ -82,6 +104,7 @@ class SQLiteRepository(AbstractRepository[T]):
             res = [mtob(self.cls, self.fields, row) for row in rows]
         con.close()
         return res
+        """
 
 
     def update(self, obj: T) -> None:

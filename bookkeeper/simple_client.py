@@ -12,7 +12,7 @@ from bookkeeper.repository.sqlite_repository import SQLiteRepository
 from bookkeeper.utils import read_tree
 
 
-db_file = 'test10.db'
+db_file = 'test23.db'
 
 cat_repo = SQLiteRepository[Category](db_file, Category)
 exp_repo = MemoryRepository[Expense]()
@@ -29,7 +29,7 @@ exp_repo = MemoryRepository[Expense]()
 #    p = cur.fetchall()
 #    print(p)
 #   if p == []:
-def create_cats(cat_repo: SQLiteRepository):
+def create_cats(cat_repo: AbstractRepository):
 
     cats = '''
         продукты
@@ -50,9 +50,7 @@ def create_cats(cat_repo: SQLiteRepository):
         else: None
 
 create_cats(cat_repo)
-#    con.close()
 
-#create_tab(con)
 
 while True:
     try:
