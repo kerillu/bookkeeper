@@ -121,13 +121,20 @@ class SQLiteRepository(AbstractRepository[T]):
                 raise KeyError(f"No {self.cls.__name__} with pk = {obj.pk} found")
         con.close()
 
-
     def delete(self, pk: int) -> None:
-        """ Удалить запись """
+        if self.get(pk) is None:
+            raise KeyError('this pk doesnt exist')
+        with sqlite3.connect(self.db_file) as con:
+            cur = con.cursor()
+            cur.execute(f"DELETE FROM {self.table_name} WHERE rowid = {pk}")
+        con.close()
+    """
+    def delete(self, pk: int) -> None:
+    
         with sqlite3.connect(self.db_file) as con:
             cur = con.cursor()
             cur.execute(f' DELETE FROM {self.table_name} WHERE pk = ?', (pk,))
             if cur.rowcount == 0:
                 raise KeyError(f"No {self.cls.__name__} with pk = {pk} found")
         con.close()
-
+    """
