@@ -5,14 +5,17 @@ from bookkeeper.repository.abstract_repository import AbstractRepository, T
 
 """
 def mtob(cls: any, fields: dict[any, any], values: str) -> any:
-    res = object.__new__(cls)
+
+    res = object.__new__(cls)  # Создаём объект класса, который будем возвращать
     if values is None:
         return None
     for attr, val in zip(fields.keys(), values):
+        # Заполняем его данными из полученной строки из БД
+        # print(attr, val)
         setattr(res, attr, val)
     setattr(res, 'pk', values[-1])
     return res
-"""
+    """
 
 class SQLiteRepository(AbstractRepository[T]):
     def __init__(self, db_file: str, cls: type) -> None:
@@ -52,9 +55,17 @@ class SQLiteRepository(AbstractRepository[T]):
         con.close()
         return obj.pk
 
-
+    """
+    def get(self, pk: int) -> T | None | any:
+        with sqlite3.connect(self.db_file) as con:
+            cur = con.cursor()
+            cur.execute(f"SELECT * FROM {self.table_name} WHERE rowid = {pk}")
+            res = mtob(self.cls, self.fields, cur.fetchone())
+        con.close()
+        return res
+    """
     def get(self, pk: int) -> T | None:
-        """ Получить объект по id """
+       #  Получить объект по id 
         with sqlite3.connect(self.db_file) as con:
             con.row_factory = sqlite3.Row
             cur = con.cursor()
@@ -120,6 +131,7 @@ class SQLiteRepository(AbstractRepository[T]):
             if cur.rowcount == 0:
                 raise KeyError(f"No {self.cls.__name__} with pk = {obj.pk} found")
         con.close()
+
 
     def delete(self, pk: int) -> None:
         if self.get(pk) is None:
