@@ -147,6 +147,7 @@ class MainWindow(QMainWindow):
 # TODO: budget tale
 
     def set_category_dropdown(self, data):#: list[str]) -> None:
+        self.category_dropdown.clear()
         for c in data:
             self.category_dropdown.addItem(c.name, c.pk)
 #        self.category_dropdown.clear()

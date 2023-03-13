@@ -67,22 +67,24 @@ class ExpensePresenter:
 
 
     def update_category_data(self) -> None:
-        self.cat_data = self.cat_repo.get_all()
-        cat1 = []
-        for c in self.cat_data:
-            cat1.append(c.pk)
-        cat_set = set(cat1)
-        cat2 = list(cat_set)
-        print(cat2)
-        res2 = []
-        for c1 in cat2:
-            ada = self.cat_repo.get(c1)
-            res2.append(ada)
-        print(res2)
-        empty = []
-        self.view.set_category_dropdown(empty)
-        #self.view.set_category_dropdown(res2)
-
+        cat_data = self.cat_repo.get_all()
+        self.view.set_category_dropdown(cat_data)
+        #self.cat_data = self.cat_repo.get_all()
+        #cat1 = []
+        #for c in self.cat_data:
+        #    cat1.append(c.pk)
+        #cat_set = set(cat1)
+        #cat2 = list(cat_set)
+        #print(cat2)
+        #res2 = []
+        #for c1 in cat2:
+        #    ada = self.cat_repo.get(c1)
+        #    res2.append(ada)
+        #print(res2)
+        #empty = []
+        #self.view.set_category_dropdown(empty)
+        ##self.view.set_category_dropdown(res2)
+#
 
     def show(self):
         self.view.show()
