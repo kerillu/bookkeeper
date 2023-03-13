@@ -1,7 +1,7 @@
 import datetime
 from PySide6.QtWidgets import QVBoxLayout, QLabel, QWidget, QGridLayout, QComboBox, QLineEdit, QPushButton, QMainWindow, QMessageBox
 from typing import Any
-
+from bookkeeper.repository.sqlite_repository import SQLiteRepository
 from bookkeeper.models.expense import Expense
 from bookkeeper.models.category import Category
 
@@ -67,17 +67,29 @@ class ExpensePresenter:
 
 
     def update_category_data(self) -> None:
-        cat_data = self.cat_repo.get_all()
-        self.view.set_category_dropdown(cat_data)
-        #cat_data = [[cat.name, cat.parent, cat.pk] for cat in self.repos[0].get_all()]
-        #self.view.set_category_dropdown(cat_data)
+        self.cat_data = self.cat_repo.get_all()
+        cat1 = []
+        for c in self.cat_data:
+            cat1.append(c.pk)
+        cat_set = set(cat1)
+        cat2 = list(cat_set)
+        print(cat2)
+        res2 = []
+        for c1 in cat2:
+            ada = self.cat_repo.get(c1)
+            res2.append(ada)
+        print(res2)
+        empty = []
+        self.view.set_category_dropdown(empty)
+        #self.view.set_category_dropdown(res2)
+
 
     def show(self):
         self.view.show()
         self.update_expense_data()
         cat_data = self.cat_repo.get_all()
         #cat_data = [[cat.name, cat.parent, cat.pk] for cat in self.repos[0].get_all()]
-        print(cat_data)
+        #print(cat_data)
         self.view.set_category_dropdown(cat_data)
 
     def handle_expense_add_button_clicked(self) -> None:
@@ -150,7 +162,7 @@ class ExpensePresenter:
         """add new caregory in category"""
         redactor_view = self.view.get_redactor()
         new_cat = Category(redactor_view.get_add_category())
-        self.exp_repo.add(new_cat)
+        self.cat_repo.add(new_cat)
         self.update_category_data()
 
     def delete_category_button_clicked(self) -> None:
