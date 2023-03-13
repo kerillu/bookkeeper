@@ -3,19 +3,7 @@ import sqlite3
 from inspect import get_annotations
 from bookkeeper.repository.abstract_repository import AbstractRepository, T
 
-"""
-def mtob(cls: any, fields: dict[any, any], values: str) -> any:
 
-    res = object.__new__(cls)  # Создаём объект класса, который будем возвращать
-    if values is None:
-        return None
-    for attr, val in zip(fields.keys(), values):
-        # Заполняем его данными из полученной строки из БД
-        # print(attr, val)
-        setattr(res, attr, val)
-    setattr(res, 'pk', values[-1])
-    return res
-    """
 
 class SQLiteRepository(AbstractRepository[T]):
     def __init__(self, db_file: str, cls: type) -> None:
@@ -31,12 +19,7 @@ class SQLiteRepository(AbstractRepository[T]):
             q = f'CREATE TABLE IF NOT EXISTS {self.table_name} (' \
                 f'"pk" INTEGER PRIMARY KEY AUTOINCREMENT, {col_names})'
             cur.execute(q)
-            #p = ' '.join([f"{field} TEXT," for field in self.fields])
-            #cur.execute(
-            #    f"CREATE TABLE IF NOT EXISTS "
-            #    f"{self.table_name} ({p} "
-            #    f"pk INTEGER PRIMARY KEY)"
-            #    )
+
         con.close()
 
 
@@ -55,15 +38,6 @@ class SQLiteRepository(AbstractRepository[T]):
         con.close()
         return obj.pk
 
-    """
-    def get(self, pk: int) -> T | None | any:
-        with sqlite3.connect(self.db_file) as con:
-            cur = con.cursor()
-            cur.execute(f"SELECT * FROM {self.table_name} WHERE rowid = {pk}")
-            res = mtob(self.cls, self.fields, cur.fetchone())
-        con.close()
-        return res
-    """
     def get(self, pk: int) -> T | None:
        #  Получить объект по id 
         with sqlite3.connect(self.db_file) as con:
@@ -102,20 +76,27 @@ class SQLiteRepository(AbstractRepository[T]):
                 obj.pk = row[0]
                 objects.append(obj)
             return objects
-        """
+
+    def get_like(self, where: dict[str, any] | None = None) -> list[T]:
+        """return list of values that looks like condition in where"""
+        if where is None:
+            raise ValueError('Where must be not None')
+        # function added by power of N_eki 4 ar
         with sqlite3.connect(self.db_file) as con:
             cur = con.cursor()
-            if where is None:
-                cur.execute(f"SELECT * FROM {self.table_name}")
-            else:
-                conditions = ' AND '.join([f"{k} = ?" for k in where.keys()])
-                values = list(where.values())
-                cur.execute(f"SELECT * FROM {self.table_name} WHERE {conditions}", values)
+            placeholders = " AND ".join([f"{f} LIKE ?" for f in where.keys()])
+            values = list(where.values())
+            cur.execute(f"SELECT * FROM {self.table_name} WHERE {placeholders}", values)
             rows = cur.fetchall()
-            res = [mtob(self.cls, self.fields, row) for row in rows]
-        con.close()
-        return res
-        """
+            objects = []
+            for row in rows:
+                values = [row[i + 1] for i in range(len(self.fields))]
+                obj = self.cls(*values)
+                obj.pk = row[0]
+                objects.append(obj)
+            return objects
+
+
 
 
     def update(self, obj: T) -> None:
@@ -140,13 +121,4 @@ class SQLiteRepository(AbstractRepository[T]):
             cur = con.cursor()
             cur.execute(f"DELETE FROM {self.table_name} WHERE rowid = {pk}")
         con.close()
-    """
-    def delete(self, pk: int) -> None:
-    
-        with sqlite3.connect(self.db_file) as con:
-            cur = con.cursor()
-            cur.execute(f' DELETE FROM {self.table_name} WHERE pk = ?', (pk,))
-            if cur.rowcount == 0:
-                raise KeyError(f"No {self.cls.__name__} with pk = {pk} found")
-        con.close()
-    """
+

@@ -1,6 +1,8 @@
-from PySide6.QtWidgets import QVBoxLayout, QLabel, QWidget, QGridLayout, QComboBox, QLineEdit, QPushButton, QMainWindow, QMessageBox
+from PySide6.QtWidgets import QVBoxLayout, QLabel, QWidget, QGridLayout, \
+    QComboBox, QLineEdit, QPushButton, QMainWindow, QMessageBox, QTabWidget
 from PySide6 import QtCore, QtWidgets
 from bookkeeper.view.categories_view import CategoryDialog
+from bookkeeper.view.budge_widget import BudgetWidget
 from bookkeeper.repository.abstract_repository import T
 from bookkeeper.view.redactor_view import RedactorWindow
 from datetime import datetime
@@ -11,15 +13,15 @@ class TableModel(QtCore.QAbstractTableModel):
         super(TableModel, self).__init__()
         self._data = data
         self.columns = columns
-        self.header_names = ['Сумма', 'Категория',
-                            'Дата добавления', 'Дата покупки',
-                             'Комментарий', 'id']
-        #list(data[0].__dataclass_fields__.keys())
+        #self.header_names = ['Сумма', 'Категория',
+        #                    'Дата добавления', 'Дата покупки',
+        #                     'Комментарий', 'id']
+        #self.header_names = list(data[0].__dataclass_fields__.keys())
 
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
         if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
-            return self.header_names[section]
+            return str(self.columns[section])
             #return super().headerData(section, orientation, role) #str(self.columns[section])
 
 
@@ -106,7 +108,16 @@ class MainWindow(QMainWindow):
 
 #        """кнопка обновления"""
 #        self.expense_update_button = QPushButton('Обновить')
-#        self.bottom_controls.addWidget(self.expense_update_button, 2, 3)
+#        self.bottom_controls.addWidget(self.expense_update_button, 0, 2)
+
+        # виджет бюджета
+#        tab_widget = QTabWidget()
+#        budget = BudgetWidget()
+#        tab_widget.addTab(budget, "Бюджет")
+
+
+        # виджет вкладок в качестве центрального виджета главного окна
+#        self.setCentralWidget(tab_widget)
 
         self.bottom_widget = QWidget()
         self.bottom_widget.setLayout(self.bottom_controls)
@@ -121,30 +132,20 @@ class MainWindow(QMainWindow):
     def set_expense_table(self, data):#: list[T]) -> None:
         """таблица расходов"""
         if data:
-            self.item_model = TableModel(data, ['Дата', 'Сумма', 'Категория', 'Комментарий'])
+            self.item_model = TableModel(data, ['Сумма', 'Категория', 'Дата добавления',
+                                                'Дата покупки', 'Комментарий', 'id'])
             self.expenses_grid.setModel(self.item_model)
             self.expenses_grid.resizeColumnsToContents()
             grid_width = sum([self.expenses_grid.columnWidth(x) for x in range(0, self.item_model.columnCount(0) + 1)])
             self.setFixedSize(grid_width + 80, 600)
-#        expense_header = ['Дата', 'Сумма', 'Категория', 'Комментарий']
-#        self.item_model = TableModel(data, expense_header)
-#        self.expenses_grid.setModel(self.item_model)
-#        header = self.expenses_grid.horizontalHeader()
-#        header.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeToContents)
-#        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-#        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-        # header.setSectionResizeMode(3, QtWidgets.QHeaderView.Stretch)
-#        self.expenses_grid.horizontalHeader().setStretchLastSection(True)
-        """
-        if data:
-            self.item_model = TableModel(data[::-1], ['Дата', 'Сумма', 'Категория', 'Комментарий'])
-            self.expenses_grid.setModel(self.item_model)
-            self.expenses_grid.horizontalHeader().setStretchLastSection(True)
-            #self.expenses_grid.resizeColumnsToContents()
-            #grid_width = sum([self.expenses_grid.columnWidth(x) for x in range(0, self.item_model.columnCount(0) + 1)])
-            #self.setFixedSize(grid_width + 80, 600)
-        """
-# TODO: budget tale
+
+
+    def set_budget_table(self, data) -> None:
+        """making budget table on main window"""
+        self.item_model = TableModel(data, ['Бюджет', 'id', 'Потрачено'])
+        self.budget_grid.setModel(self.item_model)
+        grid_width = sum([self.budget_grid.columnWidth(x) for x in range(0, self.item_model.columnCount(0) + 1)])
+        self.setFixedSize(grid_width + 80, 600)
 
     def set_category_dropdown(self, data):#: list[str]) -> None:
         self.category_dropdown.clear()
@@ -167,9 +168,7 @@ class MainWindow(QMainWindow):
         """delete expense when button "удалить" clicked"""
         self.expense_delete_button.clicked.connect(slot)
 
-#    def on_category_edit_button_clicked(self, slot: any) -> None:
-#        """open edit window when button "редактировать" clicked"""
-#        self.category_edit_button.clicked.connect(slot)
+
 
     def on_redactor_add_button_clicked(self, slot: any) -> None:
         """open new window of redaction"""
@@ -178,16 +177,33 @@ class MainWindow(QMainWindow):
     def get_redactor(self):
         return self.redactor_w
 
+    def _is_valid_summ(self, summ: str) -> bool:
+        try:
+            float(str(self.summ_line_edit.text()))
+            return True
+        except ValueError:
+            return False
+
+
     def get_summ(self) -> float:
         """возвращает сумму"""
-        return float(self.summ_line_edit.text())  # TODO: обработка исключений
+        if not self._is_valid_summ(str(self.summ_line_edit.text())):
+            message_box = QMessageBox.warning(self,
+                                              "Неверный формат количества",
+                                              "Количество должно быть в формате числа!")
+            return message_box and float(self.summ_line_edit.text())      #summ_float = float(self.summ_line_edit.text())
+        else:
+            if float(self.summ_line_edit.text()) <= 0:
+                message_box = QMessageBox.warning(self,
+                                                  "Неверный формат количества",
+                                                  "Количество должно быть больше нуля!")
+                raise ValueError
+            else:
+                return float(self.summ_line_edit.text())
 
     def get_comment(self) -> any:
         """возвращает комментария"""
-        return str(self.comment_line_edit.text())   # TODO: обработка исключений
-
-#    def get_cat(self) -> int:
-#        return self.category_dropdown.itemData(self.category_dropdown.currentIndex())
+        return str(self.comment_line_edit.text())
 
     def get_cat(self) -> any:
         """возвращает категорию"""
@@ -196,9 +212,14 @@ class MainWindow(QMainWindow):
     def get_date(self) -> any:
         """возвращает покупки типа"""
         date_str = str(self.date_line_edit.text())
-        #print(data)
-        date = datetime.strptime(date_str, '%d/%m/%Y').date()
-        return date
+        if not self._is_valid_date(date_str):
+            message_box = QMessageBox.warning(self,
+                                              "Неверный формат даты",
+                                              "Дата должна быть в формате DD/MM/YYYY!")
+            return message_box and datetime.strptime(date_str, '%d/%m/%Y').date()
+        else:
+            date = datetime.strptime(date_str, '%d/%m/%Y').date()
+            return date
 
     def get_summ_cat_comment_date(self) -> list[any]:
         """возвращает всё сразу"""
@@ -213,23 +234,7 @@ class MainWindow(QMainWindow):
             return None
         return [self.item_model._data[i].pk for i in idx]
 
-    """
-    def __get_selected_row_indices(self) -> list[int]:
 
-        indexes = self.expenses_grid.selectionModel().selection().indexes()
-        #return [indexes]
-        return list(set([qmi.row() for qmi in indexes]))
-
-    def get_selected_expenses(self) -> list[str] | None:
-
-        idx = self.__get_selected_row_indices()
-        print(idx)
-        if not idx:
-            return None
-        if self.item_model is None:
-            return None
-        return [" ".join(x for x in self.item_model._data[i]) for i in idx]
-    """
 
 
     def _is_valid_date(self, date_str: str) -> bool:
@@ -241,7 +246,6 @@ class MainWindow(QMainWindow):
             return True
         except ValueError:
             return False
-
 
     def show_cats_dialog(self, data):
         if data:
